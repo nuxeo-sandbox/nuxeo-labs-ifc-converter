@@ -383,6 +383,78 @@ var obj = Blob.RunConverter(ifcBlob, {'converter': 'ifc-to-obj'});
 var zip = Blob.RunConverter(ifcBlob, {'converter': 'ifc-to-objzip'});
 ```
 
+### 5. Example: Set the thumbnail of an .ifc Document (Nuxeo Studio configuration)
+
+In this example, we want the thumbnail (PNG, 3d) to be cacluated automatically when file:content is modified
+(so, creation/modification). Now, calculating the thumbnail may take time (usually fast, < 1 second, but
+could take dozens of seconds on complex ifc, or just a longer-than) usual Nuxeo-<>ifc-converter containers
+communication). So:<br/>
+=> It should not be done synchronously (in aboutToCreate, or beforeDocumentModification).<br/>
+=> **The chain should be called in an asynchronous event for "Document modified"**
+   
+**But** there is a "async work flow" issue. Basically, when file:content is modified (creation/modif), 2 async
+works are started, each in its own thread:
+* this event,
+* and the `updateThumbListener` work from Nuxeo.
+
+The later removes the `Thumbnail` facet if it can't generate a thumbnail. So, depending on CPU, OS threads etc.
+it erases a Thumbnail calculated in the event.
+
+1. **Event Handler**
+
+* Event: `DocumentModified`
+* Event Handler Activation:
+  * Current document has one of the types: `File` (or whatever custom document type you created)
+  * Current documetnt is: Regular Document
+* Chain (JavaScript): `FileModified_IFC_SetThumbnail` (or whatever name you want) 
+
+2. **JS Automation Chain**
+
+```js
+/* (see explanation above)
+   Acting only once the facet is gone guarantees
+    -> that we run after Nuxeo Thumbnail Listener
+    -> and that addFacet is a real add, not a no-op.
+     
+     It is also the loop guard: our own save re-adds the facet, so the next documentModified
+     exits at the beginning.
+*/
+function run(input, params) {
+  
+  var blob, png3d;
+  
+  // Immediate leave if the facet is here (either set by Nuxeo or by this same code)
+  if (input.hasFacet("Thumbnail")) {
+    return input;
+  }
+
+  blob = input["file:content"];
+  if (!blob || blob.getMimeType() !== "model/ifc") {
+    return input;
+  }
+
+  png3d = Blob.RunConverter(blob, { 'converter': "ifc-to-png", 'parameters': 'view=3d\nsize=1024' });
+  if (!png3d) {
+    return input;
+  }
+  
+  Console.log("FileModified_IFC_SetThumbnail...");
+
+  input.addFacet("Thumbnail"); // Faster than calling Document.AddFacet
+  input["thumb:thumbnail"] = png3d;
+  // The following trigers again "document modified" but we will not enter an infinite loop since
+  // the facet is tested at the very beginning
+  input = Document.Save(input, {});
+
+  return input;
+
+}
+```
+
+> [!IMPORTANT]
+> Using a JS Automation chain is fine for demos and test. In production, you should write a Java plugin that
+> overrides the default Thumbnail Factory: Handles the thumbnail if the file is .ifc, call the default code
+> if not (pdf, docx, ...)
 
 ## Tune your Docker-Compose
 
