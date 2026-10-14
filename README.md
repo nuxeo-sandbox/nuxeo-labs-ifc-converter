@@ -49,6 +49,10 @@ services:
     image: ifc-converter
     hostname: ifc-converter
     restart: unless-stopped
+    # logging: requires "x-logging: &default-logging" to be defined in your docker-compose.yml
+    # (top of the file). If yours doesn't, compose fails with:
+    #     "unknown anchor 'default-logging' referenced"
+    # Either add the x-logging part or comment out the line below.
     logging: *default-logging
     expose:
       # HTTP API, reachable only by the other containers (no "ports:" on purpose: no authentication)
