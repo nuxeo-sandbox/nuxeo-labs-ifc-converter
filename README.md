@@ -172,7 +172,7 @@ Nuxeo has no mime type for `.ifc`, `.glb` or `.obj`. Without this contribution a
 ```xml
 <extension target="org.nuxeo.ecm.platform.mimetype.service.MimetypeRegistryService" point="mimetype">
 
-  <mimetype normalized="model/ifc" binary="false" iconPath="file.png">
+  <mimetype normalized="model/ifc" binary="true" iconPath="file.png">
     <mimetypes>
       <mimetype>model/ifc</mimetype>
       <mimetype>application/x-ifc</mimetype>
